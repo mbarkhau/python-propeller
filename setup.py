@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='python-propeller',
-    version='0.2.0',
+    version='0.2.1',
     description='Pretty progress and load indicators',
     author='Thomas Einsporn, Manuel Barkhau',
     author_email='mb@nexttuesday.de, mb@nexttuesday.de',

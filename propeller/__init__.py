@@ -1,4 +1,5 @@
 # -*- coding: utf8 -*-
+from __future__ import print_function
 __author__ = 'mb@nexttuesday.de'
 """
 
@@ -63,9 +64,25 @@ BARS = {
     'hbar': u" ▁▂▃▄▅▆▇█",
     'vbar': u" ▏▎▍▌▋▊▉█",
     'dots': u"⠀⠁⠃⠇⡇⣇⣧⣷⣿",
+    'lines': u" -+=",
     '4box': u" ▖▌▛█",
     'striped_box': u" ▥▧▦▩▣",
 }
+
+# TODO: implement
+BOUNCERS = {
+    
+}
+
+def print_styles():
+    print("spinner styles:")
+    for s in SPINNERS.items():
+        print(u"% 22s: %s" % s)
+
+    print("progress bar styles:")
+    for b in BARS.items():
+        print(u"% 22s: %s" % b)
+
 
 MIN = 60.0
 HOUR = MIN * 60.0
@@ -74,15 +91,16 @@ DAY = HOUR * 24.0
 
 class propeller(object):
 
-    def __init__(self, msg=None, eta=True, percent=True, ops=True,
-                 spinner=SPINNERS['shades'], bar=BARS['shades']):
+    def __init__(self, msg="", ops=True, eta=True, percent=True,
+                 spinner='shades', bar='shades'):
+
         self._msg = msg or ""
         self._eta = eta
         self._percent = percent
         self._ops = ops
 
-        self._spinner = spinner
-        self._bar = bar
+        self._spinner = SPINNERS.get(spinner, spinner)
+        self._bar = BARS.get(bar, bar)
         # position in spinner
         self._pos = None
 
@@ -302,19 +320,28 @@ class propeller(object):
         self.end()
 
 
-def main(argv):
-    def noop(args):
+def demo(argv=None):
+    def noop(item):
         from time import sleep
-        sleep(0.01)
+        sleep(0.1)
 
-    def gen(n):
-        return xrange(n)
+    def work(n=30):
         return iter(xrange(n))
 
-    with propeller("test message ") as p:
-        p.process(noop, gen(1000))
+    propeller("lines spinner ", spinner='lines').process(noop, work())
+    propeller("shade spinner ", spinner='shades').process(noop, work())
+    propeller("vbar spinner ", spinner='vbar').process(noop, work())
+    propeller("hbar spinner ", spinner='hbar').process(noop, work())
+    propeller("dots spinner ", spinner='dots').process(noop, work())
+
+    n = 1000
+    propeller("lines progress bar ", bar='lines').process(noop, work(), n=n)
+    propeller("shade progress bar ", bar='shades').process(noop, work(), n=n)
+    propeller("vbar progress bar ", bar='vbar').process(noop, work(), n=n)
+    propeller("hbar progress bar ", bar='hbar').process(noop, work(), n=n)
+    propeller("dots progress bar ", bar='dots').process(noop, work(), n=n)
 
     return 0
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(demo(sys.argv))
