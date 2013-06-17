@@ -1,0 +1,4 @@
+include README.md
+include setup.py
+include propeller/util.py
+include propeller/__init__.py
