@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-__author__ = 'te@nexttuesday.de'
+__author__ = 'mb@nexttuesday.de'
 """
 
  )¯¯`'¯¸¯¯`,)¯¯|)¯¯)'‚/¯¯|\¯¯¯\')¯¯`'¯¸¯¯`,   ___   )¯¯ )'     )¯¯ )'         ___   )¯¯|)¯¯)'‚
@@ -7,7 +7,7 @@ __author__ = 'te@nexttuesday.de'
        °        ¯¯¯¯                    ° |__(/¯¯¯(‘      ¯¯¯        ¯¯¯  |__(/¯¯¯(‘     ¯¯¯¯
               '‚                        '‚    ¯¯¯¯'‘                          ¯¯¯¯'‘
 
-Copyright (c) 2013, Thomas Einsporn
+Copyright (c) 2013, Thomas Einsporn, Manuel Barkhau
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -17,14 +17,14 @@ modification, are permitted provided that the following conditions are met:
     * Redistributions in binary form must reproduce the above copyright
       notice, this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-    * Neither the name of the <organization> nor the
+    * Neither the name of the python-propeller nor the
       names of its contributors may be used to endorse or promote products
       derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
 DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
 LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
@@ -34,153 +34,285 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import sys
-import locale
+from locale import getpreferredencoding
 from time import time
-from random import randint
+from threading import Thread, Event
+from util import term_size
 
-"""
-from http://stackoverflow.com/questions/547829/how-to-dynamically-load-a-python-class
-"""
-def import_class(cl):
-    d = cl.rfind(".")
-    classname = cl[d+1:len(cl)]
-    m = __import__(cl[0:d], globals(), locals(), [classname])
-    return getattr(m, classname)
 
-class propeller:
+SPINNERS = {
+    'shades': u" ┄░▒▓█▓▒░┄",
+    'hbar': u" ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁",
+    'vbar': u" ▏▎▍▌▋▊▉█▉▊▌▍▎▏",
+    'dots': u"⠀⠁⠃⠇⡇⣇⣧⣷⣿⣾⣼⣸⢸⠸⠘⠈",
+    'lines': u"|/-\\",
+    'striped_box': u"□▤▥▧▨▦▩■▩▦▨▧▥▤",
+    'circle_halfs': u"◐◓◑◒",
+    'corners': u"⌜⌝⌟⌞",
+    '34_corners': u"▜▟▙▛",
+    'box_corners': u"▖▘▝▗",
+    'circle_corners': u"◜◝◞◟",
+    'triangle_corners': u"◸◹◿◺",
+    'full_triangle_corners': u"◣◤◥◢",
+    'box_corners': u"◳◲◱◰",
+    '14circle_corners': u"◴◷◶◵"
+}
 
-    style = None
-    outlen = 0
-    stylelen = 0
-    outputts = 0
-    interval = 0
-    terminal = True
-    encoding = ""
-    finished = False
+BARS = {
+    'shades': u" ┄░▒▓█",
+    'hbar': u" ▁▂▃▄▅▆▇█",
+    'vbar': u" ▏▎▍▌▋▊▉█",
+    'dots': u"⠀⠁⠃⠇⡇⣇⣧⣷⣿",
+    '4box': u" ▖▌▛█",
+    'striped_box': u" ▥▧▦▩▣",
+}
 
-    def __init__(self, style="styles.spinner.Classic", updateinterval=300, *args, **kw):
-        """
-        instantiate style
-        """
-        styleClass = import_class(style)
-        style = styleClass(*args, **kw)
+MIN = 60.0
+HOUR = MIN * 60.0
+DAY = HOUR * 24.0
 
-        self.style = style
-        self.interval = updateinterval
+
+class propeller(object):
+
+    def __init__(self, msg=None, eta=True, percent=True, ops=True,
+                 spinner=SPINNERS['shades'], bar=BARS['shades']):
+        self._msg = msg or ""
+        self._eta = eta
+        self._percent = percent
+        self._ops = ops
+
+        self._spinner = spinner
+        self._bar = bar
+        # position in spinner
+        self._pos = None
 
         if sys.stdout.isatty():
-            self.encoding = sys.stdout.encoding
+            self._terminal = True
+            self._encoding = sys.stdout.encoding
         else:
-            self.terminal = False
-            self.encoding = locale.getpreferredencoding()
+            self._terminal = False
+            self._encoding = getpreferredencoding()
 
-    def update(self, userstring="", current=0, maximum=1):
-        """
-        early exit depending on updateinterval
-        back paddle the amount of chars from previous output
-        pass user string and get output from style
-        """
-        if self.terminal:
-            if not (time() - self.outputts) * 1000 > self.interval:
-                return
-            sys.stdout.write('\b' * self.outlen)
-            styleout = self.style.output(userstring=userstring, current=current, maximum=maximum)
-            self.stylelen = len(styleout)
-            output = userstring + styleout
-            self.sysout(output)
-            self.outputts = time()
-        elif not self.finished:
-            self.sysout(userstring)
-            self.finished = True
+        self._i = None
+        self._n = None
 
-    def end(self, output=None):
-        """
-        get last and final output from style
-        output new line
-        """
-        if self.terminal:
-            sys.stdout.write('\b' * self.stylelen)
-        output = self.style.output(endstring=output, final=True)
-        self.sysout(output)
-        self.sysnl()
+        self._t_start = None
+        self._t_cur = None
+        self._t_last = None
+        self._t_avg = 0
+        self._ops_done = 0
 
-    def sysout(self, output):
-        """
-        print output
-        """
-        sys.stdout.write(output)
+        self._cols = 0
+
+        self._update_stop = Event()
+        self._update_thread = Thread(target=self._update_loop)
+        self._update_thread.start()
+
+    def _update_loop(self):
+        self._update_stop.wait(.01)  # initial wait for user code
+
+        while not self._update_stop.isSet():
+            if self._t_cur is self._t_last and self._t_cur is not None:
+                pass    # nothing to do
+            elif self._i is not None:
+                self._write_bar()
+            else:
+                if self._pos is None:
+                    self._pos = 0
+                self._write_spinner()
+                self._pos += 1
+
+            self._t_last = self._t_cur
+            self._update_stop.wait(.1)
+
+    def _write_bar(self):
+        self._clearln()
+        barlen = self._cols - len(self._msg) - 1
+
+        ops = self._ops_str() if self._ops else ""
+        barlen -= len(ops)
+
+        eta = self._eta_str() if self._eta else ""
+        barlen -= len(eta)
+
+        percent = self._percent_str() if self._percent else ""
+        barlen -= len(percent)
+
+        if self._msg:
+            sys.stdout.write(self._msg)
+        sys.stdout.write(self._bar_str(barlen))
+        if ops:
+            sys.stdout.write(ops)
+        if eta:
+            sys.stdout.write(eta)
+        if percent:
+            sys.stdout.write(percent)
         sys.stdout.flush()
-        self.outlen = len(output)
 
-    def sysnl(self):
-        """
-        output new line
-        """
+    def _write_spinner(self):
+        self._clearln()
+
+        ops = self._ops_str() if self._ops else ""
+        padding = self._cols - 3 - len(self._msg) - len(ops)
+
+        sys.stdout.write(self._msg)
+        sys.stdout.write("[")
+        sys.stdout.write(self._spinner[self._pos % len(self._spinner)])
+        sys.stdout.write("]")
+        sys.stdout.write(" " * padding)
+        sys.stdout.write(ops)
+        sys.stdout.flush()
+
+    def _clearln(self):
+        sys.stdout.write("\b" * self._cols)
+        rows, cols = term_size()
+        self._cols = cols
+
+    def _eta_str(self):
+        if not (self._i and self._n and self._t_start):
+            return "[eta: ????]"
+
+        elapsed = time() - self._t_start
+        left = (self._n - self._i) * (elapsed / self._i)
+
+        if left <= 2 * MIN:
+            return "[eta: %ds]" % left
+        if left <= 2 * HOUR:
+            return "[eta: %dm]" % (left / MIN)
+        if left < DAY:
+            return "[eta: %.1fh]" % (left / HOUR)
+        return " [eta: %.1fd]" % (left / DAY)
+
+    def _percent_str(self):
+        if self._i is None or self._n is None:
+            return "[??%]"
+        return "[% 2d%%]" % (round(self._i * 100.0) / self._n)
+
+    def _ops_str(self):
+        if not (self._t_start and self._t_avg > 0):
+            return "[ops: ??]"
+
+        ops = 1 / self._t_avg
+        if ops < 10:
+            return "[ops: %.1f]" % ops
+        return "[ops: %d]" % ops
+
+    def _bar_str(self, barlen):
+        null_chr = self._bar[0]
+        full_chr = self._bar[-1]
+
+        if not (self._i and self._n):
+            return null_chr * barlen
+
+        barlen = max(1, barlen)
+
+        sub_len = len(self._bar)
+
+        i_elapsed = float(self._i) / float(self._n)
+        elapsed = int(barlen * i_elapsed)
+        pos = int((i_elapsed * barlen * sub_len) % sub_len)
+        rest = barlen - elapsed - 1
+        return elapsed * full_chr + self._bar[pos] + rest * null_chr
+
+    def _t_update(self):
+        if self._t_start is None:
+            self._t_start = time()
+
+        if self._t_cur:
+            dt = time() - self._t_cur
+            if self._t_avg is None:
+                self._t_avg = dt
+            else:
+                self._t_avg = (self._t_avg + dt) / 2
+
+        self._t_cur = time()
+
+    def progress(self, i, n):
+        self._t_update()
+
+        self._n = n
+        self._i = i
+
+    def spin(self):
+        self._t_update()
+
+    def end(self, s=None):
+        if s:
+            self.msg(s)
+
+        if self._update_stop.isSet():
+            return
+
+        self._update_stop.set()
+        if self._i is not None:
+            self._i = self._n
+            self._write_bar()
+
+    def println(self, s):
+        self._clearln()
+        sys.stdout.write(s)
+        sys.stdout.write((self._cols - len(s)) * " ")
         sys.stdout.write("\n")
         sys.stdout.flush()
 
+    def msg(self, msg):
+        self._msg = msg
+
+    # convenience methods for collection processing
+
+    def imap(self, function, *sequences, **kwargs):
+        try:
+            self.spin()
+
+            if 'n' in kwargs:
+                total_len = kwargs['n']
+            else:
+                total_len = 0
+                for sequence in sequences:
+                    if hasattr(sequence, '__len__'):
+                        total_len += len(sequence)
+                    else:
+                        total_len = None
+                        break
+
+            i = 0
+            for sequence in sequences:
+                for item in sequence:
+                    if total_len is None:
+                        self.spin()
+                    else:
+                        self.progress(i, total_len)
+
+                    yield function(item)
+                    i += 1
+        finally:
+            self.end()
+
+    def process(self, function, *sequences, **kwargs):
+        for _ in self.imap(function, *sequences, **kwargs):
+            pass
+
+    def map(self, function, *sequences, **kwargs):
+        return list(self.imap(function, *sequences, **kwargs))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.end()
+
+
 def main(argv):
-    from time import sleep
+    def noop(args):
+        from time import sleep
+        sleep(0.01)
 
-    """
-    Simple spinner
-    """
-    p = propeller()
-    for i in xrange(1, randint(10, 100)):
-         p.update("Spinning classic %i " % i)
-         sleep(0.1)
-    p.end("done")
+    def gen(n):
+        return xrange(n)
+        return iter(xrange(n))
 
-    """
-    Simple spinner with brackets, limit output frequency
-    """
-    p = propeller(style="styles.spinner.Classic", brackets=True, spinner=1, updateinterval=50)
-    for i in xrange(1, randint(10, 100)):
-        p.update("fast spinning classic with brackets %i " % i)
-        sleep(0.1)
-    p.end("ok")
-
-    """
-    Phenox
-    """
-    for s in range(0, 7):
-        p = propeller(style="styles.spinner.Phenox", spinner=s, updateinterval=50)
-        for i in xrange(1, randint(10, 200)):
-            p.update("pnx %i " % i)
-            sleep(0.1)
-        p.end("ok")
-
-    """
-    Simple progess bar
-    """
-    p = propeller(style="styles.progress.ClassicProgress", width=50)
-    maximum = 10
-    for i in xrange(1, maximum + 1):
-        p.update("Classic progress brackets %i " % i, current=i, maximum=maximum)
-        if i > maximum - 5:
-            break
-        sleep(0.1)
-    p.end("failed")
-
-    """
-    Simple progess bar with percentage shown
-    """
-    p = propeller(style="styles.progress.ClassicProgress", width=50, showpercentage=True)
-    maximum = 10
-    for i in xrange(1, maximum + 1):
-        p.update("Classic progress brackets and % ", current=i, maximum=maximum)
-        sleep(0.1)
-    p.end("done")
-
-    """
-    Simple spinners UTF8
-    """
-    for s in range(0, 1):
-        p = propeller(style="styles.spinner.ClassicUTF8", updateinterval=50)
-        for i in xrange(1, 100):
-            p.update("Spinning UTF8 %i " % i)
-            sleep(0.1)
-        p.end("done")
+    with propeller("test message ") as p:
+        p.process(noop, gen(1000))
 
     return 0
 

@@ -1,16 +1,17 @@
 from distutils.core import setup
 
 setup(
-    name='python-propellor',
-    version='0.1.0',
+    name='python-propeller',
+    version='0.2.0',
     description='Pretty progress and load indicators',
-    author='Thomas Einsporn',
-    author_email='mbarkhau@gmail.com',
+    author='Thomas Einsporn, Manuel Barkhau',
+    author_email='mb@nexttuesday.de, mb@nexttuesday.de',
     long_description=open("README.md", 'r').read(),
     license="BSD",
-    url="https://github.com/pixelkaiser/python-propeller",
-    download_url="https://bitbucket.org/nexttuesday/django-rpc/",
-    packages=[ 'propeller', 'propeller.styles' ],
+    url="https://github.com/mbarkhau/python-propeller",
+    download_url="https://github.org/mbarkhau/python-propeller/",
+    packages=['propeller'],
+    keywords="progress loading indicator propeller",
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',
