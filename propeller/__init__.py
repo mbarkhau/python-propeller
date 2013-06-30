@@ -268,8 +268,12 @@ class propeller(object):
 
         self._update_stop.set()
         if self._i is not None:
+            # last update of progress bar to show as completed
             self._i = self._n
             self._write_bar()
+
+        sys.stdout.write("\n")
+        sys.stdout.flush()
 
     def println(self, s):
         self._clearln()
@@ -328,18 +332,18 @@ class propeller(object):
 def demo(argv=None):
     def noop(item):
         from time import sleep
-        sleep(0.009)
+        sleep(0.01)
 
-    def work(n=3000):
+    def work(n=600):
         return iter(xrange(n))
 
-    # propeller("lines spinner ", spinner='lines').process(noop, work())
-    # propeller("shade spinner ", spinner='shades').process(noop, work())
-    # propeller("vbar spinner ", spinner='vbar').process(noop, work())
-    # propeller("hbar spinner ", spinner='hbar').process(noop, work())
-    # propeller("dots spinner ", spinner='dots').process(noop, work())
+    propeller("lines spinner ", spinner='lines').process(noop, work())
+    propeller("shade spinner ", spinner='shades').process(noop, work())
+    propeller("vbar spinner ", spinner='vbar').process(noop, work())
+    propeller("hbar spinner ", spinner='hbar').process(noop, work())
+    propeller("dots spinner ", spinner='dots').process(noop, work())
 
-    n = 10000
+    n = 10000  # simulate longer loading so intermediate steps are visible
     propeller("lines progress bar ", bar='lines').process(noop, work(), n=n)
     propeller("shade progress bar ", bar='shades').process(noop, work(), n=n)
     propeller("vbar progress bar ", bar='vbar').process(noop, work(), n=n)
