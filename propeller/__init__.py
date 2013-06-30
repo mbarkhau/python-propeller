@@ -127,7 +127,7 @@ class propeller(object):
         self._update_thread.start()
 
     def _update_loop(self):
-        self._update_stop.wait(.01)  # initial wait for user code
+        self._update_stop.wait(.1)  # initial wait for user code
 
         while not self._update_stop.isSet():
             if self._t_cur is self._t_last and self._t_cur is not None:
@@ -141,7 +141,7 @@ class propeller(object):
                 self._pos += 1
 
             self._t_last = self._t_cur
-            self._update_stop.wait(.1)
+            self._update_stop.wait(.3)
 
     def _write_bar(self):
         self._clearln()
@@ -184,36 +184,37 @@ class propeller(object):
     def _clearln(self):
         sys.stdout.write("\b" * self._cols)
         rows, cols = term_size()
-        self._cols = cols
+        #self._cols = cols
+        self._cols = 80  # fixed until term_size is reliable
 
     def _eta_str(self):
         if not (self._i and self._n and self._t_start):
-            return "[eta: ????]"
+            return "[eta:???]"
 
         elapsed = time() - self._t_start
         left = (self._n - self._i) * (elapsed / self._i)
 
-        if left <= 2 * MIN:
-            return "[eta: %ds]" % left
-        if left <= 2 * HOUR:
-            return "[eta: %dm]" % (left / MIN)
-        if left < DAY:
-            return "[eta: %.1fh]" % (left / HOUR)
-        return " [eta: %.1fd]" % (left / DAY)
+        if left < 100:
+            return "[eta:% 3ds]" % left
+        if left < 100 * MIN:
+            return "[eta:% 3dm]" % (left / MIN)
+        if left < 100 * HOUR:
+            return "[eta:%3.1fh]" % (left / HOUR)
+        return "[eta:%3.1fd]" % (left / DAY)
 
     def _percent_str(self):
         if self._i is None or self._n is None:
-            return "[??%]"
-        return "[% 2d%%]" % (round(self._i * 100.0) / self._n)
+            return "[???%]"
+        return "[%2d%%]" % (round(self._i * 100.0) / self._n)
 
     def _ops_str(self):
         if not (self._t_start and self._t_avg > 0):
-            return "[ops: ??]"
+            return "[ops:????]"
 
         ops = 1 / self._t_avg
-        if ops < 10:
-            return "[ops: %.1f]" % ops
-        return "[ops: %d]" % ops
+        if ops < 20:
+            return "[ops:%4.1f]" % ops
+        return "[ops:% 4d]" % ops
 
     def _bar_str(self, barlen):
         null_chr = self._bar[0]
@@ -240,8 +241,12 @@ class propeller(object):
             dt = time() - self._t_cur
             if self._t_avg is None:
                 self._t_avg = dt
-            else:
-                self._t_avg = (self._t_avg + dt) / 2
+            elif dt < .01:
+                self._t_avg = (self._t_avg * 98 + dt) / 99
+            elif dt < .1:
+                self._t_avg = (self._t_avg * 8 + dt) / 9
+            elif dt < .5:
+                self._t_avg = (self._t_avg * 2 + dt) / 3
 
         self._t_cur = time()
 
@@ -323,18 +328,18 @@ class propeller(object):
 def demo(argv=None):
     def noop(item):
         from time import sleep
-        sleep(0.1)
+        sleep(0.009)
 
-    def work(n=30):
+    def work(n=3000):
         return iter(xrange(n))
 
-    propeller("lines spinner ", spinner='lines').process(noop, work())
-    propeller("shade spinner ", spinner='shades').process(noop, work())
-    propeller("vbar spinner ", spinner='vbar').process(noop, work())
-    propeller("hbar spinner ", spinner='hbar').process(noop, work())
-    propeller("dots spinner ", spinner='dots').process(noop, work())
+    # propeller("lines spinner ", spinner='lines').process(noop, work())
+    # propeller("shade spinner ", spinner='shades').process(noop, work())
+    # propeller("vbar spinner ", spinner='vbar').process(noop, work())
+    # propeller("hbar spinner ", spinner='hbar').process(noop, work())
+    # propeller("dots spinner ", spinner='dots').process(noop, work())
 
-    n = 1000
+    n = 10000
     propeller("lines progress bar ", bar='lines').process(noop, work(), n=n)
     propeller("shade progress bar ", bar='shades').process(noop, work(), n=n)
     propeller("vbar progress bar ", bar='vbar').process(noop, work(), n=n)

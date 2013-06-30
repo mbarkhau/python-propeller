@@ -9,10 +9,10 @@ def read(fname):
 
 setup(
     name='python-propeller',
-    version='0.2.3',
+    version='0.2.4',
     description='Pretty progress and load indicators',
     author='Thomas Einsporn, Manuel Barkhau',
-    author_email='mb@nexttuesday.de, mb@nexttuesday.de',
+    author_email='te@nexttuesday.de, mb@nexttuesday.de',
     long_description=read("README.md"),
     license="BSD",
     url="https://github.com/mbarkhau/python-propeller",
