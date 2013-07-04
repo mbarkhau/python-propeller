@@ -9,7 +9,7 @@ def read(fname):
 
 setup(
     name='python-propeller',
-    version='0.2.5',
+    version='0.2.6',
     description='Pretty progress and load indicators',
     author='Thomas Einsporn, Manuel Barkhau',
     author_email='te@nexttuesday.de, mb@nexttuesday.de',
