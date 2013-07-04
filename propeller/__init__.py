@@ -145,7 +145,7 @@ class propeller(object):
 
     def _write_bar(self):
         self._clearln()
-        barlen = self._cols - len(self._msg) - 1
+        barlen = self._cols - len(self._msg)
 
         ops = self._ops_str() if self._ops else ""
         barlen -= len(ops)
@@ -158,6 +158,7 @@ class propeller(object):
 
         if self._msg:
             sys.stdout.write(self._msg)
+
         sys.stdout.write(self._bar_str(barlen))
         if ops:
             sys.stdout.write(ops)
@@ -171,21 +172,19 @@ class propeller(object):
         self._clearln()
 
         ops = self._ops_str() if self._ops else ""
-        padding = self._cols - 3 - len(self._msg) - len(ops)
+        spin = self._spin_str()
+        padding = self._cols - (len(spin) + len(self._msg) + len(ops))
 
         sys.stdout.write(self._msg)
-        sys.stdout.write("[")
-        sys.stdout.write(self._spinner[self._pos % len(self._spinner)])
-        sys.stdout.write("]")
-        sys.stdout.write(" " * padding)
+        sys.stdout.write(spin)
+        sys.stdout.write(padding * " ")
         sys.stdout.write(ops)
         sys.stdout.flush()
 
     def _clearln(self):
         sys.stdout.write("\b" * self._cols)
         rows, cols = term_size()
-        #self._cols = cols
-        self._cols = 80  # fixed until term_size is reliable
+        self._cols = cols
 
     def _eta_str(self):
         if not (self._i and self._n and self._t_start):
@@ -204,17 +203,20 @@ class propeller(object):
 
     def _percent_str(self):
         if self._i is None or self._n is None:
-            return "[???%]"
-        return "[%2d%%]" % (round(self._i * 100.0) / self._n)
+            return "[ ??%]"
+        return "[%3d%%]" % (round(self._i * 100.0) / self._n)
 
     def _ops_str(self):
         if not (self._t_start and self._t_avg > 0):
-            return "[ops:????]"
+            return "[ops: ???]"
 
         ops = 1 / self._t_avg
         if ops < 20:
             return "[ops:%4.1f]" % ops
         return "[ops:% 4d]" % ops
+
+    def _spin_str(self):
+        return "[" + self._spinner[self._pos % len(self._spinner)] + "]"
 
     def _bar_str(self, barlen):
         null_chr = self._bar[0]
@@ -224,14 +226,14 @@ class propeller(object):
             return null_chr * barlen
 
         barlen = max(1, barlen)
-
         sub_len = len(self._bar)
 
         i_elapsed = float(self._i) / float(self._n)
         elapsed = int(barlen * i_elapsed)
         pos = int((i_elapsed * barlen * sub_len) % sub_len)
-        rest = barlen - elapsed - 1
-        return elapsed * full_chr + self._bar[pos] + rest * null_chr
+        rest = (barlen - elapsed) - 1
+        pos_str = self._bar[pos] if rest > 0 else ""
+        return elapsed * full_chr + pos_str + rest * null_chr
 
     def _t_update(self):
         if self._t_start is None:
