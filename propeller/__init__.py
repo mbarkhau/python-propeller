@@ -249,6 +249,10 @@ class propeller(object):
                 self._t_avg = (self._t_avg * 8 + dt) / 9
             elif dt < .5:
                 self._t_avg = (self._t_avg * 2 + dt) / 3
+            elif dt < 1:
+                self._t_avg = (self._t_avg + dt) / 2
+            else:
+                self._t_avg = (self._t_avg + dt * 2) / 3
 
         self._t_cur = time()
 
