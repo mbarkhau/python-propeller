@@ -124,6 +124,7 @@ class propeller(object):
 
         self._update_stop = Event()
         self._update_thread = Thread(target=self._update_loop)
+        self._update_thread.setDaemon(True)
         self._update_thread.start()
 
     def _update_loop(self):
